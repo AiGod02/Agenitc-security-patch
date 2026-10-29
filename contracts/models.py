@@ -27,6 +27,122 @@ class RouteEntry(BaseModel):
     line: int = Field(ge=1)
 
 
+class RichRouteEntry(RouteEntry):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    middleware_chain: list[str] = Field(default_factory=list)
+    has_auth_check: bool = False
+    sinks_reached: list[dict[str, Any]] = Field(default_factory=list)
+    identity_fields: list[str] = Field(default_factory=list)
+    ownership_comparisons: list[str] = Field(default_factory=list)
+
+
+class RunState(StrEnum):
+    CREATED = "CREATED"
+    RECON = "RECON"
+    CANDIDATES = "CANDIDATES"
+    VERIFYING = "VERIFYING"
+    PATCHING = "PATCHING"
+    CHECKING = "CHECKING"
+    AWAITING_APPROVAL = "AWAITING_APPROVAL"
+    APPROVED = "APPROVED"
+    APPLIED = "APPLIED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class CandidateState(StrEnum):
+    PROPOSED = "PROPOSED"
+    INVALID = "INVALID"
+    TEST_WRITTEN = "TEST_WRITTEN"
+    VERIFIED_REPRODUCER = "VERIFIED_REPRODUCER"
+    NOT_REPRODUCED = "NOT_REPRODUCED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+    PLANNED = "PLANNED"
+    PATCH_PROPOSED = "PATCH_PROPOSED"
+    GUARD_REJECTED = "GUARD_REJECTED"
+    PATCH_FAILED = "PATCH_FAILED"
+    CHECKS_PASSED = "CHECKS_PASSED"
+    REGRESSION = "REGRESSION"
+    AWAITING_APPROVAL = "AWAITING_APPROVAL"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    APPLIED = "APPLIED"
+
+
+class ArtifactEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run_id: str = Field(min_length=1)
+    stage: str = Field(min_length=1)
+    candidate_id: str | None = None
+    input_hash: str = Field(min_length=1)
+    created_at: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+    payload_sha256: str = Field(min_length=64, max_length=64)
+    payload: dict[str, Any]
+
+
+class FileLineCitation(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    file: str = Field(min_length=1)
+    line: int = Field(ge=1)
+    snippet: str = Field(min_length=1)
+
+
+class PatchOption(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    option_id: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    layer: Literal["handler", "shared_middleware", "data_access"]
+    pros_and_cons: str = Field(min_length=1)
+
+
+class PatchPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_id: str = Field(min_length=1)
+    violated_invariant: str = Field(min_length=1)
+    root_cause: str = Field(min_length=1)
+    root_cause_evidence: list[FileLineCitation] = Field(min_length=1)
+    context_read: list[str] = Field(min_length=1)
+    candidate_fixes: list[PatchOption] = Field(min_length=2)
+    chosen_option_id: str = Field(min_length=1)
+    chosen_rationale: str = Field(min_length=1)
+    fix_layer: Literal["handler", "shared_middleware", "data_access"]
+    fix_layer_justification: str = Field(min_length=1)
+    helper_reuse_note: str = Field(min_length=1)
+    behavioral_risks: str = Field(min_length=1)
+    protecting_companion_test: str = Field(min_length=1)
+    expected_scope_files: list[str] = Field(min_length=1)
+    expected_approx_lines: int = Field(ge=1)
+
+
+class VariantTestResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_id: str = Field(min_length=1)
+    invariant_id: str = Field(min_length=1)
+    variant_test_path: str = Field(min_length=1)
+    baseline_exit_code: int
+    baseline_matched_tag: bool
+    baseline_match_reason: MatchReason
+    post_patch_exit_code: int | None = None
+    post_patch_passed: bool | None = None
+
+
+class PossibleVariant(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    label: Literal["possible variant"] = "possible variant"
+    route: str = Field(min_length=1)
+    file: str = Field(min_length=1)
+    line: int = Field(ge=1)
+    pattern_reason: str = Field(min_length=1)
+
+
 class Candidate(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -229,7 +345,14 @@ class Event(BaseModel):
     run_id: str = Field(min_length=1)
     timestamp: str = Field(min_length=1)
     stage: str = Field(min_length=1)
-    event_type: Literal["model_call", "tool_call", "stage_transition", "approval"]
+    event_type: Literal[
+        "model_call",
+        "tool_call",
+        "stage_transition",
+        "state_transition",
+        "artifact_event",
+        "approval",
+    ]
     input_hash: str = Field(min_length=1)
     args: dict[str, Any] = Field(default_factory=dict)
     result_ref: str | None = None

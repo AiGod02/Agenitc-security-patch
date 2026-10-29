@@ -15,10 +15,11 @@ def write_evidence_bundle(
     companion_test_code: str,
     baseline_stdout: str,
     patch_result: PatchResult | None,
+    bundle_dir_override: Path | None = None,
 ) -> Path:
     """Write a complete, self-contained reviewer evidence bundle folder for a verified finding."""
     cand = verified_finding.candidate
-    bundle_dir = run_dir / "bundles" / cand.id
+    bundle_dir = bundle_dir_override if bundle_dir_override is not None else (run_dir / "bundles" / cand.id)
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     (bundle_dir / "security.test.js").write_text(security_test_code, encoding="utf-8")

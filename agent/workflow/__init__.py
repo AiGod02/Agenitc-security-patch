@@ -1,3 +1,46 @@
+from agent.workflow.pipeline import (
+    run_pipeline,
+    stage_advise,
+    stage_apply,
+    stage_approve,
+    stage_check,
+    stage_detect,
+    stage_patch,
+    stage_plan,
+    stage_recon,
+    stage_verify,
+    verify_approval_or_void,
+)
 from agent.workflow.runner import WorkflowRunArtifacts, run_security_workflow
+from agent.workflow.state import (
+    CorruptedArtifactError,
+    IllegalStateTransitionError,
+    StaleArtifactInputError,
+    StateManager,
+    ensure_synced_state,
+    read_stage_artifact,
+    rebuild_state_from_events,
+)
 
-__all__ = ["WorkflowRunArtifacts", "run_security_workflow"]
+__all__ = [
+    "CorruptedArtifactError",
+    "IllegalStateTransitionError",
+    "StaleArtifactInputError",
+    "StateManager",
+    "WorkflowRunArtifacts",
+    "ensure_synced_state",
+    "read_stage_artifact",
+    "rebuild_state_from_events",
+    "run_pipeline",
+    "run_security_workflow",
+    "stage_advise",
+    "stage_apply",
+    "stage_approve",
+    "stage_check",
+    "stage_detect",
+    "stage_patch",
+    "stage_plan",
+    "stage_recon",
+    "stage_verify",
+    "verify_approval_or_void",
+]
