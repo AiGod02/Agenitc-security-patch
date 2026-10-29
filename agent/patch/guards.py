@@ -219,3 +219,133 @@ def normalize_failure_signature(failure_text: str) -> str:
     cleaned = re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*", "<ts>", cleaned)
     cleaned = " ".join(cleaned.lower().split())
     return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
+
+
+GENERIC_FRAMEWORK_LITERALS: frozenset[str] = frozenset(
+    {
+        "get",
+        "post",
+        "put",
+        "delete",
+        "patch",
+        "options",
+        "authorization",
+        "bearer",
+        "origin",
+        "host",
+        "cookie",
+        "x-webhook-key",
+        "content-type",
+        "application/json",
+        "admin",
+        "user",
+        "utf8",
+        "utf-8",
+        "true",
+        "false",
+        "error",
+        "forbidden",
+        "unauthorized",
+        "access-control-allow-origin",
+        "access-control-allow-credentials",
+        "https://app.internal.example",
+        "auth_token_secret",
+        "webhook_api_key",
+        "allowed_origin",
+    }
+)
+
+QUOTED_LITERAL_RE = re.compile(r"""(['"`])((?:\\.|(?!\1)[^\\\r\n])+)\1""")
+
+
+def extract_test_specific_literals(
+    security_test_code: str,
+    existing_source_text: str = "",
+) -> set[str]:
+    """Extract attack/identity/resource literals from a security test to guard against patch overfitting (Part 3b)."""
+    # Strip require(...), test("title", ...), describe("title", ...), and invariant(...) lines before scanning literals
+    filtered_lines: list[str] = []
+    skip_invariant = False
+    for raw_line in security_test_code.splitlines():
+        s = raw_line.strip()
+        if "require(" in s or s.startswith(("test(", "it(", "describe(")):
+            continue
+        if "invariant(" in s:
+            skip_invariant = True
+        if skip_invariant:
+            if ");" in s:
+                skip_invariant = False
+            continue
+        filtered_lines.append(raw_line)
+
+    body = "\n".join(filtered_lines)
+    candidates: set[str] = set()
+    for m in QUOTED_LITERAL_RE.finditer(body):
+        lit = m.group(2).strip()
+        if "${" in lit:
+            # Template literal like `Bearer ${token}` -> skip interpolation wrapper
+            continue
+        if len(lit) < 3:
+            continue
+        if lit.lower() in GENERIC_FRAMEWORK_LITERALS:
+            continue
+        if existing_source_text and lit in existing_source_text:
+            continue
+        candidates.add(lit)
+        # Also extract trailing resource IDs or filenames from route/traversal strings (e.g. /api/invoices/inv-1001 -> inv-1001)
+        if "/" in lit:
+            tail = lit.rsplit("/", 1)[-1].strip()
+            if len(tail) >= 4 and tail.lower() not in GENERIC_FRAMEWORK_LITERALS:
+                if not existing_source_text or tail not in existing_source_text:
+                    candidates.add(tail)
+    return candidates
+
+
+def check_test_literal_hardcoding(
+    unified_diff: str,
+    security_test_code: str,
+    existing_source_text: str = "",
+) -> list[str]:
+    """Return violation reasons if added lines in unified_diff hardcode literals from security_test_code (Part 3b)."""
+    forbidden_literals = extract_test_specific_literals(security_test_code, existing_source_text)
+    if not forbidden_literals:
+        return []
+    try:
+        file_diffs = parse_unified_diff(unified_diff)
+    except PatchApplyError:
+        return []
+
+    added_lines: list[str] = []
+    for fd in file_diffs:
+        for hunk in fd.hunks:
+            for hl in hunk.lines:
+                if hl.startswith("+"):
+                    added_lines.append(hl[1:])
+
+    added_blob = "\n".join(added_lines)
+    added_quoted = {m.group(2).strip() for m in QUOTED_LITERAL_RE.finditer(added_blob)}
+
+    hits: list[str] = []
+    for lit in sorted(forbidden_literals):
+        if lit in added_quoted or f'"{lit}"' in added_blob or f"'{lit}'" in added_blob:
+            hits.append(f"Patch hardcodes literal '{lit}' taken from security test")
+    return hits
+
+
+def check_expected_scope(unified_diff: str, expected_scope_files: list[str]) -> list[str]:
+    """Check whether unified_diff touches files outside patch_plan.expected_scope_files (Part 3c)."""
+    if not expected_scope_files:
+        return []
+    try:
+        file_diffs = parse_unified_diff(unified_diff)
+    except PatchApplyError:
+        return []
+
+    allowed = {p.strip().replace("\\", "/") for p in expected_scope_files}
+    touched = {fd.new_path.strip().replace("\\", "/") for fd in file_diffs}
+    outside = sorted(touched - allowed)
+    if outside:
+        return [
+            f"Patch touches file(s) {outside} outside plan expected_scope {sorted(allowed)}; flagged for explicit human review"
+        ]
+    return []
