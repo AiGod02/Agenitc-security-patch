@@ -102,6 +102,17 @@ def verify_candidate(
         "tests/helpers/invariant.js",
         "tests/baseline.test.js",
     ]
+    if _read_optional(run_id, dispatcher, "src/app.js") is None:
+        listed = dispatcher.call(run_id, "list_files", {})
+        if listed.ok and isinstance(listed.output, list):
+            extra_js = [
+                f
+                for f in listed.output
+                if isinstance(f, str)
+                and (f in ("package.json", "app.js", "index.js", "server.js", "src/index.js", "src/server.js") or f.endswith(".js"))
+                and not f.startswith("tests/generated/")
+            ][:10]
+            context_paths.extend(extra_js)
     seen: set[str] = set()
     file_blocks: list[str] = []
     for rel in context_paths:

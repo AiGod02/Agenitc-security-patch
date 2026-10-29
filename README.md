@@ -29,7 +29,17 @@ cd fixture/express-fixture && npm install && cd ../..
 docker build -t psa-sandbox:latest -f docker/Dockerfile .
 ```
 
-### 2. Run the Pre-Merge CLI Gate on the Vulnerable Fixture (Blocks with Exit Code `1`)
+### 2. Interactive Web Dashboard for Hackathon Judges (Paste Any Git Repo URL)
+```bash
+uvicorn agent.api.app:app --host 127.0.0.1 --port 8000
+```
+Open `http://127.0.0.1:8000` in your browser:
+1. **Paste Any GitHub HTTPS Repo URL** (e.g. `https://github.com/owner/express-repo` or `https://github.com/owner/monorepo/tree/main/packages/api`) or click the 1-click **Built-in Vulnerable Express Fixture** preset, then click **Scan & Verify Repository**.
+2. **Automatic Host Prep + Offline Sandbox**: The host clones the repo into `runs/<run_id>/source_repo`, auto-injects `tests/helpers/invariant.js` if missing, pre-bakes target dependencies + Jest + Supertest into a cached offline Docker image (`psa-sandbox:<hash12>`), and runs every verification & patch check inside `--network none --read-only --cap-drop ALL`.
+3. **Live 6-Stage Stepper & Candidate Matrix**: Watch real-time progress across Static Recon -> Candidate Detect -> Verify Reproducer -> Deep Logic Plan -> Held-Out Variant & Patch -> Mechanical Guards & 9-Section Advisory.
+4. **Side-by-Side Diff + Advisory, SHA-256 Approval & 1-Click Branch Commit**: Review the unified diff alongside `06_evidence/<cid>/advisory.md`, click **1. Approve Exact SHA-256**, and click **2. Apply Patch to Git Branch** to create an isolated review branch (`psa/fix-<cid>`) without auto-merging.
+
+### 3. Run the Pre-Merge CLI Gate on the Vulnerable Fixture (Blocks with Exit Code `1`)
 ```bash
 python -m agent.cli gate --target fixture/express-fixture --reproducers fixture/reproducers
 ```

@@ -195,6 +195,15 @@ def create_verified_patch_plan(
         "src/store.js",
         "src/db.js",
     ]
+    if not (workspace / "src/app.js").exists():
+        listed = dispatcher.call(run_id, "list_files", {})
+        if listed.ok and isinstance(listed.output, list):
+            extra_js = [
+                f
+                for f in listed.output
+                if isinstance(f, str) and f.endswith(".js") and not f.startswith("tests/")
+            ][:10]
+            context_files.extend(extra_js)
     seen: set[str] = set()
     blocks: list[str] = []
     for rel in context_files:

@@ -2,52 +2,779 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Verified Security Patch Agent — Human Review Gate</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verified Security Patch Agent — Live Repository Scanner & Human Gate</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; margin: 24px; background: #0f172a; color: #e2e8f0; }
-    h1, h2, h3 { color: #f8fafc; margin-top: 0; }
-    .bar { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
-    select, input, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #f8fafc; }
-    button { background: #2563eb; border-color: #1d4ed8; cursor: pointer; font-weight: 600; }
-    button:hover { background: #1d4ed8; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; }
-    .PASS { background: #065f46; color: #a7f3d0; }
-    .FAIL { background: #7f1d1d; color: #fecaca; }
-    pre { background: #020617; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; border: 1px solid #1e293b; white-space: pre-wrap; }
-    .meta { font-size: 13px; color: #94a3b8; margin-bottom: 8px; }
-    .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
-    .panel-title { font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; }
+    :root {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface-2: #1e293b;
+      --surface-3: #0b1120;
+      --border: #283548;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --emerald: #10b981;
+      --emerald-bg: rgba(16, 185, 129, 0.14);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245, 158, 11, 0.14);
+      --rose: #f43f5e;
+      --rose-bg: rgba(244, 63, 94, 0.14);
+      --cyan: #06b6d4;
+      --cyan-bg: rgba(6, 182, 212, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      background: radial-gradient(circle at top right, #131c31 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container { max-width: 1420px; margin: 0 auto; padding: 24px 28px 64px; }
+    code, pre { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    /* Top Header */
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+    .hero h1 { font-size: 24px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.02em; color: #ffffff; }
+    .hero p { margin: 0; color: var(--muted); font-size: 14px; max-width: 780px; }
+    .guard-pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+    }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); }
+
+    /* Cards & Controls */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .card-title { font-size: 15px; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .subtext { font-size: 12.5px; color: var(--muted); }
+
+    /* Repo Launcher Form */
+    .launcher-grid {
+      display: grid;
+      grid-template-columns: 2.6fr 1fr 0.9fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    @media (max-width: 1024px) {
+      .launcher-grid { grid-template-columns: 1fr; }
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 5px;
+    }
+    input, select {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-3);
+      color: var(--text);
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    button {
+      padding: 9px 15px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #ffffff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-secondary { background: var(--surface-2); border-color: var(--border); color: #e2e8f0; }
+    .btn-secondary:hover:not(:disabled) { background: #29384e; }
+    .btn-emerald { background: #059669; color: #ffffff; }
+    .btn-emerald:hover:not(:disabled) { background: #047857; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .preset-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .preset-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.32);
+      color: #93c5fd;
+    }
+    .preset-btn:hover { background: rgba(59, 130, 246, 0.22); }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .toolbar-left, .toolbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .toolbar select { width: 340px; }
+
+    /* Stepper */
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin: 12px 0 10px;
+    }
+    @media (max-width: 980px) { .stepper { grid-template-columns: repeat(2, 1fr); } }
+    .step {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .step .step-num { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+    .step .step-label { font-weight: 700; color: #cbd5e1; font-size: 12.5px; }
+    .step.done { border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08); }
+    .step.done .step-label { color: #6ee7b7; }
+    .step.active {
+      border-color: var(--cyan);
+      background: var(--cyan-bg);
+      box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25);
+    }
+    .step.active .step-label { color: #67e8f9; }
+    .step.failed { border-color: var(--rose); background: var(--rose-bg); }
+    .step.failed .step-label { color: #fda4af; }
+
+    /* KPI Row */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 600px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .kpi .kpi-label { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi .kpi-val { font-size: 24px; font-weight: 800; margin-top: 4px; color: #f8fafc; }
+    .kpi .kpi-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+    /* Candidate Matrix Table */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Status Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .PASS, .CHECKS_PASSED, .APPROVED, .APPLIED, .VERIFIED_REPRODUCER {
+      background: var(--emerald-bg);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .AWAITING_APPROVAL, .PLANNED, .PATCH_PROPOSED, .TEST_WRITTEN, .RUNNING, .PREPARING {
+      background: var(--cyan-bg);
+      color: #67e8f9;
+      border: 1px solid rgba(6, 182, 212, 0.35);
+    }
+    .NOT_REPRODUCED, .INCONCLUSIVE, .PROPOSED {
+      background: var(--amber-bg);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+    .FAIL, .FAILED, .PATCH_FAILED, .GUARD_REJECTED, .REGRESSION, .REJECTED, .INVALID {
+      background: var(--rose-bg);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    /* Finding Review Panels */
+    .gate-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0 14px;
+    }
+    .gate-chip {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+    }
+    .gate-chip.ok { border-color: rgba(16, 185, 129, 0.4); color: #a7f3d0; }
+
+    .plan-box {
+      background: rgba(59, 130, 246, 0.07);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 1050px) { .review-grid { grid-template-columns: 1fr; } }
+
+    .panel-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    pre {
+      background: var(--surface-3);
+      padding: 13px 14px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12.5px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    .diff-add { color: #6ee7b7; background: rgba(16, 185, 129, 0.1); display: block; }
+    .diff-del { color: #fda4af; background: rgba(244, 63, 94, 0.1); display: block; }
+    .diff-hunk { color: #67e8f9; display: block; font-weight: 600; }
+
+    .advisory-view {
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      max-height: 500px;
+      overflow-y: auto;
+      font-size: 13px;
+      color: #e2e8f0;
+    }
+    .advisory-view h1, .advisory-view h2, .advisory-view h3 {
+      color: #ffffff;
+      margin: 14px 0 6px;
+      font-size: 14.5px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+      padding-bottom: 4px;
+    }
+    .advisory-view h1:first-child, .advisory-view h2:first-child { margin-top: 0; }
+    .advisory-view ul { margin: 6px 0 10px 18px; padding: 0; }
+    .advisory-view li { margin-bottom: 4px; }
+    .advisory-view code {
+      background: rgba(148, 163, 184, 0.14);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #93c5fd;
+    }
+
+    .approval-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .approval-bar input { width: 200px; }
+    .status-msg { font-size: 12.5px; font-weight: 600; color: #6ee7b7; }
+    .status-msg.err { color: #fda4af; }
   </style>
 </head>
 <body>
-  <h1>Verified Security Patch Agent — Evidence & Approval Review</h1>
-  <div class="bar">
-    <label for="runSelect">Recorded Run:</label>
-    <select id="runSelect"></select>
-    <button onclick="loadSelectedRun()">Refresh</button>
-    <button onclick="loadReplay()">Inspect Replay Log</button>
+  <div class="container">
+    <!-- Hero Header -->
+    <div class="hero">
+      <div>
+        <h1>Verified Security Patch Agent</h1>
+        <p>Paste any Express/Node.js GitHub repository URL or local path to automatically clone, build an isolated offline sandbox, reproduce vulnerabilities with tagged invariants, synthesize root-cause patches against held-out variant tests, and gate branch commits on SHA-256 human approval.</p>
+      </div>
+      <div class="guard-pills">
+        <span class="pill"><span class="dot"></span> Sandbox: <code>--network none</code></span>
+        <span class="pill"><span class="dot"></span> Held-Out Variant Anti-Overfit</span>
+        <span class="pill"><span class="dot"></span> SHA-256 Bound Approval</span>
+        <span class="pill"><span class="dot"></span> No Auto-Merge</span>
+      </div>
+    </div>
+
+    <!-- Repository Scan Launcher -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Scan Any Git Repository or Express App</h2>
+          <div class="subtext">Automatically clones remote/local Git repos, injects <code>tests/helpers/invariant.js</code> if absent, pre-bakes dependencies into an offline Docker image, and executes the 6-stage pipeline.</div>
+        </div>
+      </div>
+      <div class="launcher-grid">
+        <div class="field">
+          <label for="repoSource">GitHub HTTPS URL (repo or <code>/tree/branch/subdir</code>) or Local Path</label>
+          <input id="repoSource" type="text" placeholder="https://github.com/owner/express-repo  or  fixture/express-fixture" value="fixture/express-fixture" />
+        </div>
+        <div class="field">
+          <label for="subdirInput">Monorepo Subdir (optional)</label>
+          <input id="subdirInput" type="text" placeholder="e.g. packages/api" />
+        </div>
+        <div class="field">
+          <label for="maxCandidatesSelect">Max Candidates</label>
+          <select id="maxCandidatesSelect">
+            <option value="2">2 (Fast Judge Demo)</option>
+            <option value="4">4 Candidates</option>
+            <option value="0" selected>All Candidates</option>
+          </select>
+        </div>
+        <div>
+          <button id="startScanBtn" class="btn-primary" onclick="startRepositoryScan()">Scan &amp; Verify Repository</button>
+        </div>
+      </div>
+      <div class="preset-row">
+        <span>Quick Presets:</span>
+        <button type="button" class="preset-btn" onclick="fillPreset('fixture/express-fixture', '', '2')">Built-in Vulnerable Express Fixture (Fast 2-Candidate Live Run)</button>
+        <button type="button" class="preset-btn" onclick="fillPreset('fixture/express-fixture', '', '0')">Built-in Vulnerable Express Fixture (Full Suite)</button>
+        <span id="launchFeedback" class="subtext"></span>
+      </div>
+    </div>
+
+    <!-- Run Selector & Replay Bar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <label for="runSelect" class="subtext" style="font-weight:700;color:#cbd5e1;">Active / Recorded Run:</label>
+        <select id="runSelect" onchange="onRunSelectChange()"></select>
+        <button class="btn-secondary" onclick="loadSelectedRun()">Refresh</button>
+        <button class="btn-secondary" onclick="toggleEventsPanel()">Live Event Stream</button>
+        <button class="btn-secondary" onclick="loadReplay()">Deterministic Replay Log</button>
+      </div>
+      <div class="toolbar-right">
+        <span id="livePollIndicator" class="subtext"></span>
+      </div>
+    </div>
+
+    <!-- Live Pipeline Stage Stepper -->
+    <div id="pipelineCard" class="card">
+      <div class="card-header" style="margin-bottom:6px;">
+        <div>
+          <h2 class="card-title">Multi-Stage Pipeline Execution <span id="runStateBadge" class="badge PREPARING" style="margin-left:8px;">IDLE</span></h2>
+          <div id="phaseDetailText" class="subtext" style="margin-top:3px;">Select a recorded run or launch a new repository scan above.</div>
+        </div>
+        <div id="ingestMetaText" class="subtext" style="text-align:right;"></div>
+      </div>
+      <div class="stepper" id="stageStepper">
+        <div class="step" data-step="0"><span class="step-num">Host Prep</span><span class="step-label">Ingest &amp; Image</span></div>
+        <div class="step" data-step="1"><span class="step-num">Stage 01</span><span class="step-label">Static Recon</span></div>
+        <div class="step" data-step="2"><span class="step-num">Stage 02</span><span class="step-label">Candidate Detect</span></div>
+        <div class="step" data-step="3"><span class="step-num">Stage 03</span><span class="step-label">Verify Reproducer</span></div>
+        <div class="step" data-step="4"><span class="step-num">Stage 04a</span><span class="step-label">Deep Logic Plan</span></div>
+        <div class="step" data-step="5"><span class="step-num">Stage 04b</span><span class="step-label">Variant &amp; Patch</span></div>
+        <div class="step" data-step="6"><span class="step-num">Stage 05-06</span><span class="step-label">Checks &amp; Advisory</span></div>
+      </div>
+    </div>
+
+    <!-- KPI Summary Row -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Express Routes</div>
+        <div class="kpi-val" id="kpiRoutes">0</div>
+        <div class="kpi-sub">Middleware + sinks mapped</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Candidates Proposed</div>
+        <div class="kpi-val" id="kpiCandidates">0</div>
+        <div class="kpi-sub">Schema &amp; invariant checked</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Verified Reproducers</div>
+        <div class="kpi-val" id="kpiVerified" style="color:#67e8f9;">0</div>
+        <div class="kpi-sub">Failed baseline for exact tag</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">False Positives Cut</div>
+        <div class="kpi-val" id="kpiRejected" style="color:#fcd34d;">0</div>
+        <div class="kpi-sub">Unreproduced hypotheses</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Patches Verified PASS</div>
+        <div class="kpi-val" id="kpiPassed" style="color:#6ee7b7;">0</div>
+        <div class="kpi-sub">Passed variant + full suite + guards</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Sandbox Isolation</div>
+        <div class="kpi-val" id="kpiSandbox" style="font-size:15px;margin-top:9px;color:#93c5fd;">psa-sandbox:latest</div>
+        <div class="kpi-sub"><code>--network none --read-only</code></div>
+      </div>
+    </div>
+
+    <!-- Candidate State Matrix -->
+    <div id="candidateMatrixCard" class="card" style="display:none;">
+      <div class="card-header">
+        <h3 class="card-title">Independent Per-Candidate State Machine</h3>
+        <span class="subtext">Derived from append-only <code>events.jsonl</code> &amp; atomic stage envelopes</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Vulnerability Class</th>
+              <th>Route</th>
+              <th>Location</th>
+              <th>Invariant Tag</th>
+              <th>State</th>
+              <th>Repairs</th>
+            </tr>
+          </thead>
+          <tbody id="candidateMatrixBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Collapsible Live Events Box -->
+    <div id="eventsBox" class="card" style="display:none;">
+      <div class="card-header">
+        <h3 class="card-title">Live Append-Only Event Stream (<code>events.jsonl</code>)</h3>
+        <button class="btn-secondary" onclick="document.getElementById('eventsBox').style.display='none'">Close</button>
+      </div>
+      <pre id="eventsPre">No events recorded yet.</pre>
+    </div>
+
+    <!-- Deterministic Replay Box -->
+    <div id="replayBox" class="card" style="display:none;">
+      <div class="card-header">
+        <h3 class="card-title">Deterministic Replay Audit Log</h3>
+        <button class="btn-secondary" onclick="document.getElementById('replayBox').style.display='none'">Close</button>
+      </div>
+      <pre id="replayPre"></pre>
+    </div>
+
+    <!-- Findings & Human Review Cards -->
+    <div id="findingsBox"></div>
   </div>
-  <div id="summaryBox" class="card">Loading real run artifacts from /api/runs...</div>
-  <div id="replayBox" class="card" style="display:none;"></div>
-  <div id="findingsBox"></div>
 
   <script>
-    async function init() {
+    let pollTimer = null;
+    let activeRunId = null;
+
+    function escHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function formatDiffHtml(diffText) {
+      if (!diffText) return "<span class='subtext'>No patch diff generated.</span>";
+      return diffText.split("\n").map(line => {
+        const safe = escHtml(line);
+        if (line.startsWith("+++") || line.startsWith("---")) return `<strong>${safe}</strong>`;
+        if (line.startsWith("@@")) return `<span class="diff-hunk">${safe}</span>`;
+        if (line.startsWith("+")) return `<span class="diff-add">${safe}</span>`;
+        if (line.startsWith("-")) return `<span class="diff-del">${safe}</span>`;
+        return safe;
+      }).join("\n");
+    }
+
+    function renderMarkdownSimple(md) {
+      if (!md) return "<span class='subtext'>No advisory generated (only findings that pass all verification &amp; guard checks receive an advisory).</span>";
+      const lines = md.split("\n");
+      let html = "";
+      let inList = false;
+      let inCode = false;
+      for (const raw of lines) {
+        if (raw.trim().startsWith("```")) {
+          if (inList) { html += "</ul>"; inList = false; }
+          if (!inCode) { html += "<pre style='margin:8px 0;'>"; inCode = true; }
+          else { html += "</pre>"; inCode = false; }
+          continue;
+        }
+        if (inCode) {
+          html += escHtml(raw) + "\n";
+          continue;
+        }
+        let line = escHtml(raw)
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        if (line.startsWith("### ")) {
+          if (inList) { html += "</ul>"; inList = false; }
+          html += `<h3>${line.slice(4)}</h3>`;
+        } else if (line.startsWith("## ")) {
+          if (inList) { html += "</ul>"; inList = false; }
+          html += `<h2>${line.slice(3)}</h2>`;
+        } else if (line.startsWith("# ")) {
+          if (inList) { html += "</ul>"; inList = false; }
+          html += `<h1>${line.slice(2)}</h1>`;
+        } else if (line.trim().startsWith("- ")) {
+          if (!inList) { html += "<ul>"; inList = true; }
+          html += `<li>${line.trim().slice(2)}</li>`;
+        } else if (line.trim() === "") {
+          if (inList) { html += "</ul>"; inList = false; }
+        } else {
+          if (inList) { html += "</ul>"; inList = false; }
+          html += `<p style="margin:6px 0;">${line}</p>`;
+        }
+      }
+      if (inList) html += "</ul>";
+      if (inCode) html += "</pre>";
+      return html;
+    }
+
+    function fillPreset(repo, subdir, maxCand) {
+      document.getElementById("repoSource").value = repo;
+      document.getElementById("subdirInput").value = subdir;
+      document.getElementById("maxCandidatesSelect").value = maxCand;
+    }
+
+    function updateStepper(jobStatus, runState, candidates) {
+      const steps = document.querySelectorAll("#stageStepper .step");
+      steps.forEach(s => s.classList.remove("done", "active", "failed"));
+
+      const hasPlanned = (candidates || []).some(c =>
+        ["PLANNED", "PATCH_PROPOSED", "CHECKS_PASSED", "AWAITING_APPROVAL", "APPROVED", "APPLIED", "PATCH_FAILED", "GUARD_REJECTED", "REGRESSION"].includes(c.state)
+      );
+      const hasPatch = (candidates || []).some(c =>
+        ["PATCH_PROPOSED", "CHECKS_PASSED", "AWAITING_APPROVAL", "APPROVED", "APPLIED"].includes(c.state)
+      );
+
+      let activeIdx = -1;
+      if (jobStatus === "PREPARING") activeIdx = 0;
+      else if (runState === "CREATED" || runState === "RECON") activeIdx = 1;
+      else if (runState === "CANDIDATES") activeIdx = 2;
+      else if (runState === "VERIFYING") activeIdx = 3;
+      else if (runState === "PATCHING") activeIdx = hasPatch ? 5 : (hasPlanned ? 5 : 4);
+      else if (runState === "CHECKING") activeIdx = 6;
+      else if (["AWAITING_APPROVAL", "APPROVED", "APPLIED", "COMPLETED"].includes(runState) || ["AWAITING_APPROVAL", "COMPLETED"].includes(jobStatus)) {
+        activeIdx = 7;
+      }
+
+      steps.forEach((el, idx) => {
+        if (jobStatus === "FAILED" && idx === Math.max(0, activeIdx)) {
+          el.classList.add("failed");
+        } else if (idx < activeIdx) {
+          el.classList.add("done");
+        } else if (idx === activeIdx && activeIdx < 7) {
+          el.classList.add("active");
+        }
+      });
+    }
+
+    async function refreshRunDropdown(preferRunId) {
       const resp = await fetch("/api/runs");
       const data = await resp.json();
       const sel = document.getElementById("runSelect");
+      const prev = preferRunId || sel.value;
       sel.innerHTML = "";
-      if (!data.runs.length) {
-        document.getElementById("summaryBox").textContent = "No run artifacts found in runs/ yet. Execute `psa run --target fixture/express-fixture` first.";
-        return;
-      }
       for (const r of data.runs) {
         const opt = document.createElement("option");
         opt.value = r.run_id;
-        opt.textContent = `${r.run_id} (verified=${r.verified_reproducers}, pass=${r.patches_passed})`;
+        const stLabel = r.state ? ` [${r.state}]` : "";
+        opt.textContent = `${r.run_id}${stLabel} — verified=${r.verified_reproducers}, pass=${r.patches_passed}`;
         sel.appendChild(opt);
       }
+      if (prev && [...sel.options].some(o => o.value === prev)) {
+        sel.value = prev;
+      }
+      return data.runs;
+    }
+
+    async function startRepositoryScan() {
+      const repoSource = document.getElementById("repoSource").value.trim();
+      const subdir = document.getElementById("subdirInput").value.trim();
+      const maxVal = parseInt(document.getElementById("maxCandidatesSelect").value, 10);
+      const feedback = document.getElementById("launchFeedback");
+      const btn = document.getElementById("startScanBtn");
+
+      if (!repoSource) {
+        feedback.textContent = "Please enter a GitHub HTTPS URL or local repository path.";
+        return;
+      }
+      btn.disabled = true;
+      feedback.textContent = "Starting repository ingestion & offline sandbox build...";
+      try {
+        const resp = await fetch("/api/runs/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repo_source: repoSource,
+            subdir: subdir,
+            max_candidates: maxVal > 0 ? maxVal : null,
+            use_cache: true
+          })
+        });
+        const out = await resp.json();
+        if (!resp.ok) {
+          feedback.textContent = `Launch error: ${out.detail || "Failed"}`;
+          btn.disabled = false;
+          return;
+        }
+        feedback.textContent = `Launched run ${out.run_id}`;
+        document.getElementById("findingsBox").innerHTML = "";
+        await refreshRunDropdown(out.run_id);
+        startLivePolling(out.run_id);
+      } catch (err) {
+        feedback.textContent = `Network error: ${err}`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function stopLivePolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      document.getElementById("livePollIndicator").textContent = "";
+    }
+
+    function startLivePolling(runId) {
+      stopLivePolling();
+      activeRunId = runId;
+      pollLiveStatus(runId);
+      pollTimer = setInterval(() => pollLiveStatus(runId), 1500);
+    }
+
+    async function pollLiveStatus(runId) {
+      const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}/live`);
+      if (!resp.ok) return;
+      const live = await resp.json();
+
+      const badge = document.getElementById("runStateBadge");
+      const effState = live.job_status === "PREPARING" ? "PREPARING" : (live.job_status === "FAILED" ? "FAILED" : live.run_state);
+      badge.textContent = effState;
+      badge.className = `badge ${effState}`;
+      document.getElementById("phaseDetailText").textContent = live.error ? `Error: ${live.error}` : live.phase_detail;
+
+      if (live.ingest && live.ingest.repo_source) {
+        const commitShort = live.ingest.cloned_commit ? ` @ ${live.ingest.cloned_commit.slice(0, 8)}` : "";
+        const helperNote = live.ingest.injected_invariant_helper ? " | invariant.js auto-injected" : "";
+        document.getElementById("ingestMetaText").innerHTML =
+          `Source: <code>${escHtml(live.ingest.repo_source)}</code>${escHtml(commitShort)}${escHtml(helperNote)}`;
+        if (live.ingest.sandbox_image) {
+          document.getElementById("kpiSandbox").textContent = live.ingest.sandbox_image;
+        }
+      } else {
+        document.getElementById("ingestMetaText").textContent = "";
+        document.getElementById("kpiSandbox").textContent = "psa-sandbox:latest";
+      }
+
+      document.getElementById("kpiRoutes").textContent = live.routes_discovered;
+      document.getElementById("kpiCandidates").textContent = live.candidates_accepted;
+      document.getElementById("kpiVerified").textContent = live.verified_reproducers;
+      document.getElementById("kpiRejected").textContent = live.not_reproduced;
+      document.getElementById("kpiPassed").textContent = live.patches_passed;
+
+      updateStepper(live.job_status, live.run_state, live.candidates);
+      renderCandidateMatrix(live.candidates || []);
+
+      if (live.recent_events && live.recent_events.length) {
+        const lines = live.recent_events.map(e =>
+          `[${String(e.seq).padStart(3, "0")}] ${e.stage} :: ${e.event_type} ${e.duration_ms ? "(" + e.duration_ms + "ms)" : ""} ${e.error ? "ERROR=" + e.error : ""}`
+        );
+        document.getElementById("eventsPre").textContent = lines.join("\n");
+      }
+
+      const terminal = ["AWAITING_APPROVAL", "APPROVED", "APPLIED", "COMPLETED", "FAILED", "CANCELLED"].includes(live.job_status)
+        && !["PREPARING", "RUNNING", "RECON", "CANDIDATES", "VERIFYING", "PATCHING", "CHECKING"].includes(live.run_state);
+
+      if (terminal || ["AWAITING_APPROVAL", "APPROVED", "APPLIED", "FAILED"].includes(live.job_status)) {
+        stopLivePolling();
+        await refreshRunDropdown(runId);
+        await renderRunFindings(runId);
+      } else {
+        document.getElementById("livePollIndicator").textContent = `Live polling ${runId} every 1.5s...`;
+      }
+    }
+
+    function renderCandidateMatrix(candidates) {
+      const card = document.getElementById("candidateMatrixCard");
+      const tbody = document.getElementById("candidateMatrixBody");
+      if (!candidates.length) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+      tbody.innerHTML = candidates.map(c => `
+        <tr>
+          <td><strong>${escHtml(c.id)}</strong></td>
+          <td>${escHtml(c.vulnerability_class)}</td>
+          <td><code>${escHtml(c.route)}</code></td>
+          <td><code>${escHtml(c.file)}</code></td>
+          <td><code>${escHtml(c.invariant_id)}</code></td>
+          <td><span class="badge ${escHtml(c.state)}">${escHtml(c.state)}</span></td>
+          <td>${c.repair_count || 0}</td>
+        </tr>
+      `).join("");
+    }
+
+    function toggleEventsPanel() {
+      const box = document.getElementById("eventsBox");
+      box.style.display = box.style.display === "none" ? "block" : "none";
+    }
+
+    async function onRunSelectChange() {
+      stopLivePolling();
       await loadSelectedRun();
     }
 
@@ -55,44 +782,111 @@
       const runId = document.getElementById("runSelect").value;
       if (!runId) return;
       document.getElementById("replayBox").style.display = "none";
+
+      const liveResp = await fetch(`/api/runs/${encodeURIComponent(runId)}/live`);
+      if (liveResp.ok) {
+        const live = await liveResp.json();
+        if (["PREPARING", "RUNNING"].includes(live.job_status) || ["RECON", "CANDIDATES", "VERIFYING", "PATCHING", "CHECKING"].includes(live.run_state)) {
+          startLivePolling(runId);
+          return;
+        }
+        await pollLiveStatus(runId);
+        return;
+      }
+      await renderRunFindings(runId);
+    }
+
+    async function renderRunFindings(runId) {
       const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}`);
+      if (!resp.ok) return;
       const data = await resp.json();
       const s = data.summary;
-      document.getElementById("summaryBox").innerHTML =
-        `<h3>Run ${s.run_id}</h3>` +
-        `<div class="meta">Routes: ${s.routes_discovered} | Candidates: ${s.candidates_accepted} | Verified Reproducers: ${s.verified_reproducers} | Not Reproduced: ${s.not_reproduced} | Inconclusive: ${s.inconclusive} | Patches PASS: ${s.patches_passed}</div>`;
+
+      document.getElementById("kpiRoutes").textContent = s.routes_discovered;
+      document.getElementById("kpiCandidates").textContent = s.candidates_accepted;
+      document.getElementById("kpiVerified").textContent = s.verified_reproducers;
+      document.getElementById("kpiRejected").textContent = s.not_reproduced;
+      document.getElementById("kpiPassed").textContent = s.patches_passed;
 
       const container = document.getElementById("findingsBox");
       container.innerHTML = "";
+
+      if (!data.findings.length) {
+        container.innerHTML = `<div class="card"><div class="subtext">No verified reproducer findings in run <code>${escHtml(s.run_id)}</code> yet.</div></div>`;
+        return;
+      }
+
+      const canAutoApply = Boolean(data.ingest && data.ingest.apply_repo_dir);
+
       for (const f of data.findings) {
         const c = f.candidate;
         const p = f.patch_result || {};
+        const plan = f.patch_plan || null;
         const status = p.final_status || "UNPATCHED";
+        const advisoryText = f.advisory_markdown;
+
         const card = document.createElement("div");
         card.className = "card";
         card.innerHTML = `
-          <h3>${c.id} — ${c.vulnerability_class} on <code>${c.route}</code> <span class="badge ${status}">${status}</span></h3>
-          <div class="meta">File: <code>${c.file}:${c.start_line}-${c.end_line}</code> | Invariant: <code>${c.invariant_id}</code></div>
-          <p><strong>Expected Failure:</strong> ${c.expected_security_failure}</p>
-          <p><strong>Baseline Match:</strong> <code>${f.baseline_failure_summary}</code> | Companion Baseline Exit: <code>${f.verification.companion_baseline_exit_code}</code></p>
-          <p><strong>Post-Patch Checks:</strong> Security Exit=<code>${p.patched_security_exit_code}</code>, Companion Exit=<code>${p.companion_after_exit_code}</code>, Full Suite Exit=<code>${p.full_suite_exit_code}</code>, Guards Passed=<code>${p.guards_passed}</code></p>
-          <p><strong>Patch SHA-256:</strong> <code>${p.patch_sha256 || "N/A"}</code></p>
-          <div class="review-grid">
+          <div class="card-header">
             <div>
-              <div class="panel-title">Proposed Unified Diff</div>
-              <pre>${(p.unified_diff || "").replace(/</g, "&lt;")}</pre>
-            </div>
-            <div>
-              <div class="panel-title">Evidence-Backed Advisory (06_evidence/${c.id}/advisory.md)</div>
-              <pre>${(f.advisory_markdown || "No advisory generated (only passing findings receive an advisory).").replace(/</g, "&lt;")}</pre>
+              <h3 class="card-title" style="font-size:17px;">
+                ${escHtml(c.id)} — ${escHtml(c.vulnerability_class)} on <code>${escHtml(c.route)}</code>
+                <span class="badge ${escHtml(status)}">${escHtml(status)}</span>
+              </h3>
+              <div class="subtext" style="margin-top:3px;">
+                Location: <code>${escHtml(c.file)}:${c.start_line}-${c.end_line}</code> &nbsp;|&nbsp;
+                Invariant: <code>${escHtml(c.invariant_id)}</code> &nbsp;|&nbsp;
+                Patch SHA-256: <code>${escHtml(p.patch_sha256 || "N/A")}</code>
+              </div>
             </div>
           </div>
+
+          <div class="gate-strip">
+            <span class="gate-chip ok">Baseline Fail: <code>${escHtml(f.baseline_failure_summary)}</code></span>
+            <span class="gate-chip ${p.patched_security_exit_code === 0 ? 'ok' : ''}">Patched Security Exit: <code>${p.patched_security_exit_code ?? 'N/A'}</code></span>
+            <span class="gate-chip ${p.companion_after_exit_code === 0 ? 'ok' : ''}">Companion Exit: <code>${p.companion_after_exit_code ?? 'N/A'}</code></span>
+            <span class="gate-chip ${p.full_suite_exit_code === 0 ? 'ok' : ''}">Full Suite Exit: <code>${p.full_suite_exit_code ?? 'N/A'}</code></span>
+            <span class="gate-chip ${p.guards_passed ? 'ok' : ''}">Mechanical Guards: <code>${p.guards_passed ? 'PASS' : 'FAIL'}</code></span>
+          </div>
+
+          ${plan ? `
+            <div class="plan-box">
+              <strong>Deep Logic Plan (${escHtml(plan.fix_layer || "handler")} layer):</strong>
+              ${escHtml(plan.chosen_fix || "")}
+              <div class="subtext" style="margin-top:4px;">
+                <strong>Why minimal:</strong> ${escHtml(plan.chosen_fix_rationale || "")}
+                ${plan.expected_scope ? ` | <strong>Expected Scope:</strong> <code>${escHtml((plan.expected_scope.files || []).join(", "))}</code>` : ""}
+              </div>
+            </div>
+          ` : ""}
+
+          <div class="review-grid">
+            <div>
+              <div class="panel-title">
+                <span>Proposed Unified Diff</span>
+                <span class="subtext">${(p.patched_files || []).map(escHtml).join(", ")}</span>
+              </div>
+              <pre>${formatDiffHtml(p.unified_diff || "")}</pre>
+            </div>
+            <div>
+              <div class="panel-title">
+                <span>9-Section Evidence-Backed Advisory (<code>06_evidence/${escHtml(c.id)}/advisory.md</code>)</span>
+              </div>
+              <div class="advisory-view">${renderMarkdownSimple(advisoryText)}</div>
+            </div>
+          </div>
+
           ${status === "PASS" ? `
-            <div class="bar">
-              <input id="rev_${c.id}" placeholder="Reviewer name" value="security-reviewer" />
-              <input id="br_${c.id}" placeholder="Target branch" value="psa/fix-${c.id.toLowerCase()}" />
-              <button onclick="approvePatch('${s.run_id}', '${c.id}', '${p.patch_sha256}')">Approve Exact SHA-256</button>
-              <span id="status_${c.id}">${f.approval ? "Approved by " + f.approval.reviewer + " for " + f.approval.target_branch : ""}</span>
+            <div class="approval-bar">
+              <input id="rev_${escHtml(c.id)}" placeholder="Reviewer identity" value="hackathon-judge" />
+              <input id="br_${escHtml(c.id)}" placeholder="Target git branch" value="psa/fix-${escHtml(c.id.toLowerCase())}" />
+              <input id="repo_${escHtml(c.id)}" placeholder="${canAutoApply ? 'Auto-uses cloned repo (optional override)' : 'Git repo path for branch apply'}" style="width:260px;" />
+              <button class="btn-primary" onclick="approvePatch('${escHtml(s.run_id)}', '${escHtml(c.id)}', '${escHtml(p.patch_sha256)}')">1. Approve Exact SHA-256</button>
+              <button class="btn-emerald" onclick="applyPatchToBranch('${escHtml(s.run_id)}', '${escHtml(c.id)}')">2. Apply Patch to Git Branch</button>
+              <span id="status_${escHtml(c.id)}" class="status-msg">${
+                f.approval ? "Approved by " + escHtml(f.approval.reviewer) + " -> " + escHtml(f.approval.target_branch) : ""
+              }</span>
             </div>
           ` : ""}
         `;
@@ -107,25 +901,63 @@
       const data = await resp.json();
       const box = document.getElementById("replayBox");
       box.style.display = "block";
-      box.innerHTML = `<h3>Replay Output</h3><pre>${data.formatted.replace(/</g, "&lt;")}</pre>`;
+      document.getElementById("replayPre").textContent = data.formatted || "";
     }
 
     async function approvePatch(runId, findingId, sha256) {
-      const reviewer = document.getElementById(`rev_${findingId}`).value;
-      const branch = document.getElementById(`br_${findingId}`).value;
+      const reviewer = document.getElementById(`rev_${findingId}`).value.trim();
+      const branch = document.getElementById(`br_${findingId}`).value.trim();
+      const statusEl = document.getElementById(`status_${findingId}`);
+      statusEl.className = "status-msg";
+      statusEl.textContent = "Binding SHA-256 approval...";
+
       const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}/bundles/${encodeURIComponent(findingId)}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reviewer, patch_sha256: sha256, target_branch: branch })
       });
       const out = await resp.json();
-      document.getElementById(`status_${findingId}`).textContent = resp.ok
-        ? `Approved (${out.patch_sha256.slice(0, 12)} -> ${out.target_branch})`
-        : `Error: ${out.detail}`;
+      if (resp.ok) {
+        statusEl.textContent = `Approved SHA ${out.patch_sha256.slice(0, 12)} for branch ${out.target_branch}`;
+      } else {
+        statusEl.className = "status-msg err";
+        statusEl.textContent = `Approval rejected: ${out.detail}`;
+      }
+    }
+
+    async function applyPatchToBranch(runId, findingId) {
+      const branch = document.getElementById(`br_${findingId}`).value.trim();
+      const repoOverride = document.getElementById(`repo_${findingId}`).value.trim();
+      const statusEl = document.getElementById(`status_${findingId}`);
+      statusEl.className = "status-msg";
+      statusEl.textContent = "Applying verified patch to isolated git branch...";
+
+      const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}/bundles/${encodeURIComponent(findingId)}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo_dir: repoOverride, target_branch: branch })
+      });
+      const out = await resp.json();
+      if (resp.ok) {
+        statusEl.textContent = `Committed on branch ${out.branch} @ ${out.commit.slice(0, 12)} (no auto-merge)`;
+        await pollLiveStatus(runId);
+      } else {
+        statusEl.className = "status-msg err";
+        statusEl.textContent = `Apply blocked: ${out.detail}`;
+      }
+    }
+
+    async function init() {
+      const runs = await refreshRunDropdown();
+      if (!runs.length) {
+        document.getElementById("phaseDetailText").textContent =
+          "No recorded runs yet — paste any Express GitHub repo URL above or click 'Scan & Verify Repository' to run live!";
+        return;
+      }
+      await loadSelectedRun();
     }
 
     init();
   </script>
 </body>
 </html>
-
