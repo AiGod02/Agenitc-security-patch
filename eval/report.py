@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 from pathlib import Path
 from typing import Any
@@ -13,17 +14,80 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_run_records(run_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Load candidates, verifications, patches, and summary metadata from either staged envelopes or legacy files."""
+    staged_cand = run_dir / "02_candidates.json"
+    if staged_cand.exists():
+        cand_env = _load_json(staged_cand)
+        cand_payload = cand_env.get("payload", cand_env)
+        candidates: list[dict[str, Any]] = list(cand_payload.get("accepted", []))
+
+        verifications: list[dict[str, Any]] = []
+        ver_dir = run_dir / "03_verification"
+        if ver_dir.exists():
+            for fp in sorted(ver_dir.glob("*.json")):
+                if fp.name.endswith(".jest.json"):
+                    continue
+                env = _load_json(fp)
+                ver_dict = dict((env.get("payload") or {}).get("verification") or {})
+                if ver_dict:
+                    verifications.append(ver_dict)
+
+        patches: list[dict[str, Any]] = []
+        chk_dir = run_dir / "05_checks"
+        if chk_dir.exists():
+            for fp in sorted(chk_dir.glob("*.json")):
+                env = _load_json(fp)
+                pr_dict = dict((env.get("payload") or {}).get("patch_result") or {})
+                if pr_dict:
+                    patches.append(pr_dict)
+
+        run_id = str(cand_env.get("run_id") or run_dir.name)
+        state_file = run_dir / "state.json"
+        if state_file.exists():
+            try:
+                run_id = str(_load_json(state_file).get("run_id") or run_id)
+            except Exception:
+                pass
+
+        duration_ms = 0
+        events_file = run_dir / "events.jsonl"
+        if events_file.exists():
+            ts_list: list[datetime] = []
+            sum_dur = 0
+            for raw in events_file.read_text(encoding="utf-8").splitlines():
+                if not raw.strip():
+                    continue
+                try:
+                    ev = json.loads(raw)
+                    sum_dur += int(ev.get("duration_ms") or 0)
+                    ts_str = ev.get("timestamp")
+                    if isinstance(ts_str, str):
+                        ts_list.append(datetime.fromisoformat(ts_str.replace("Z", "+00:00")))
+                except Exception:
+                    continue
+            if len(ts_list) >= 2:
+                duration_ms = max(0, int((ts_list[-1] - ts_list[0]).total_seconds() * 1000))
+            else:
+                duration_ms = sum_dur
+
+        return candidates, verifications, patches, {"run_id": run_id, "duration_ms": duration_ms}
+
+    cand_doc = _load_json(run_dir / "candidates.json")
+    candidates = cand_doc.get("accepted", [])
+    verifications = _load_json(run_dir / "verifications.json")
+    patches = _load_json(run_dir / "patches.json")
+    summary_doc = _load_json(run_dir / "run_summary.json")
+    return candidates, verifications, patches, summary_doc
+
+
 def score_single_run(run_dir: Path, ground_truth_path: Path) -> dict[str, Any]:
     """Compute per-class and overall metrics strictly from saved run_dir artifacts and ground_truth.json."""
     gt = _load_json(ground_truth_path)
     flaws: list[dict[str, Any]] = gt["flaws"]
     clean_routes: set[str] = {c["route"] for c in gt.get("clean_routes", [])}
 
-    cand_doc = _load_json(run_dir / "candidates.json")
-    candidates: list[dict[str, Any]] = cand_doc.get("accepted", [])
-    verifications: list[dict[str, Any]] = _load_json(run_dir / "verifications.json")
-    patches: list[dict[str, Any]] = _load_json(run_dir / "patches.json")
-    summary_doc = _load_json(run_dir / "run_summary.json")
+    candidates, verifications, patches, summary_doc = _load_run_records(run_dir)
 
     ver_by_id = {v["candidate_id"]: v for v in verifications}
     patch_by_id = {p["candidate_id"]: p for p in patches}

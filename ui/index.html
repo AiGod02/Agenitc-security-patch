@@ -14,8 +14,10 @@
     .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; }
     .PASS { background: #065f46; color: #a7f3d0; }
     .FAIL { background: #7f1d1d; color: #fecaca; }
-    pre { background: #020617; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; border: 1px solid #1e293b; }
+    pre { background: #020617; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; border: 1px solid #1e293b; white-space: pre-wrap; }
     .meta { font-size: 13px; color: #94a3b8; margin-bottom: 8px; }
+    .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+    .panel-title { font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; }
   </style>
 </head>
 <body>
@@ -75,7 +77,16 @@
           <p><strong>Baseline Match:</strong> <code>${f.baseline_failure_summary}</code> | Companion Baseline Exit: <code>${f.verification.companion_baseline_exit_code}</code></p>
           <p><strong>Post-Patch Checks:</strong> Security Exit=<code>${p.patched_security_exit_code}</code>, Companion Exit=<code>${p.companion_after_exit_code}</code>, Full Suite Exit=<code>${p.full_suite_exit_code}</code>, Guards Passed=<code>${p.guards_passed}</code></p>
           <p><strong>Patch SHA-256:</strong> <code>${p.patch_sha256 || "N/A"}</code></p>
-          <pre>${(p.unified_diff || "").replace(/</g, "&lt;")}</pre>
+          <div class="review-grid">
+            <div>
+              <div class="panel-title">Proposed Unified Diff</div>
+              <pre>${(p.unified_diff || "").replace(/</g, "&lt;")}</pre>
+            </div>
+            <div>
+              <div class="panel-title">Evidence-Backed Advisory (06_evidence/${c.id}/advisory.md)</div>
+              <pre>${(f.advisory_markdown || "No advisory generated (only passing findings receive an advisory).").replace(/</g, "&lt;")}</pre>
+            </div>
+          </div>
           ${status === "PASS" ? `
             <div class="bar">
               <input id="rev_${c.id}" placeholder="Reviewer name" value="security-reviewer" />
