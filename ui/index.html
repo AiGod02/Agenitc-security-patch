@@ -812,7 +812,22 @@
       container.innerHTML = "";
 
       if (!data.findings.length) {
-        container.innerHTML = `<div class="card"><div class="subtext">No verified reproducer findings in run <code>${escHtml(s.run_id)}</code> yet.</div></div>`;
+        if (s.routes_discovered === 0) {
+          container.innerHTML = `
+            <div class="card" style="border-left: 4px solid var(--amber);">
+              <h3 class="card-title" style="color:#fcd34d;">⚠️ No Express Routes Detected (0 Routes Analyzed)</h3>
+              <p style="margin: 8px 0 6px; font-size:13.5px;">
+                Static recon mapped <strong>0 Express routes</strong> in this repository. The Verified Security Patch Agent analyzes <strong>Node.js / Express backend APIs</strong> (looking for IDOR, Command/SQL Injection, Path Traversal, and Missing Auth on <code>app.get()</code>, <code>app.post()</code>, and <code>router.use()</code>).
+              </p>
+              <div class="subtext" style="line-height:1.6;">
+                • <strong>Frontend App (React / Vite / Vue)</strong>: A client-side React UI (like <code>Restaurant_react</code>) has no backend Express endpoints to probe or reproduce.<br>
+                • <strong>Monorepo</strong>: If the Express API is located in a subdirectory (e.g. <code>packages/api</code> or <code>server</code>), specify that in the <em>Monorepo Subdir</em> field.<br>
+                • <strong>To test verified findings right now</strong>: Click the <strong>Built-in Vulnerable Express Fixture</strong> preset above (which contains 18 real routes with 12 intentional flaws) and click <strong>Scan &amp; Verify Repository</strong>.
+              </div>
+            </div>`;
+        } else {
+          container.innerHTML = `<div class="card"><div class="subtext">0 vulnerabilities reproduced in run <code>${escHtml(s.run_id)}</code> (${s.routes_discovered} routes analyzed, ${s.candidates_accepted} candidates proposed). All invariants held or no tagged reproducible failure occurred.</div></div>`;
+        }
         return;
       }
 

@@ -252,6 +252,19 @@ def create_review_api(
                     final_state = json.loads((run_dir / "state.json").read_text(encoding="utf-8")).get(
                         "run_state", "AWAITING_APPROVAL"
                     )
+                routes_found = 0
+                if (run_dir / "01_recon.json").exists():
+                    try:
+                        r_doc = json.loads((run_dir / "01_recon.json").read_text(encoding="utf-8"))
+                        routes_found = len((r_doc.get("payload") or {}).get("routes") or [])
+                    except Exception:
+                        pass
+
+                if routes_found == 0:
+                    phase_msg = "Recon complete: 0 Express routes detected. Target is not a Node.js/Express backend or has no standard app.get/post/router routes."
+                else:
+                    phase_msg = "Pipeline complete. Ready for human review & SHA-256 approval."
+
                 atomic_write_json(
                     job_file,
                     {
@@ -260,7 +273,7 @@ def create_review_api(
                         "subdir": payload.subdir,
                         "max_candidates": payload.max_candidates,
                         "job_status": final_state,
-                        "phase_detail": "Pipeline complete. Ready for human review & SHA-256 approval.",
+                        "phase_detail": phase_msg,
                         "sandbox_image": meta["sandbox_image"],
                         "finished_at": datetime.now(timezone.utc).isoformat(),
                         "error": None,
