@@ -207,6 +207,7 @@ def generate_candidates(
     llm: LLMClient,
     routes: list[RouteEntry],
     enabled_classes: set[VulnerabilityClass] | None = None,
+    rich_routes_data: list[dict[str, Any]] | None = None,
 ) -> CandidateBatchResult:
     """Inspect workspace source files via Dispatcher and propose validated Candidates with Muse Spark."""
     listed = dispatcher.call(run_id, "list_files", {})
@@ -231,7 +232,27 @@ def generate_candidates(
         file_contents[rel_path] = read_res.output
         file_line_counts[rel_path] = _count_numbered_lines(read_res.output)
 
-    route_lines = [f"- {r.method} {r.path} (defined at {r.file}:{r.line})" for r in routes]
+    rich_lookup: dict[tuple[str, str], dict[str, Any]] = {}
+    if rich_routes_data:
+        for rr in rich_routes_data:
+            rich_lookup[(str(rr.get("method")), str(rr.get("path")))] = rr
+
+    route_lines: list[str] = []
+    for r in routes:
+        base_str = f"- {r.method} {r.path} (defined at {r.file}:{r.line})"
+        rr = rich_lookup.get((r.method, r.path))
+        if rr and ("middleware_chain" in rr or "sinks_reached" in rr):
+            mw = rr.get("middleware_chain", [])
+            auth_ok = rr.get("has_auth_check", False)
+            sinks = rr.get("sinks_reached", [])
+            id_f = rr.get("identity_fields", [])
+            own_c = rr.get("ownership_comparisons", [])
+            base_str += (
+                f" | middleware={mw} | has_auth_check={auth_ok} "
+                f"| sinks={sinks} | identity_fields={id_f} | ownership_comparisons={own_c}"
+            )
+        route_lines.append(base_str)
+
     files_xml = "\n\n".join(
         f'<untrusted_source_file path="{path}" total_lines="{file_line_counts[path]}">\n{content}\n</untrusted_source_file>'
         for path, content in file_contents.items()
