@@ -71,18 +71,12 @@ def _ensure_custom_sandbox_image(pkg_json_path: Path, lock_path: Path | None) ->
     if insp.returncode == 0:
         return tag
 
-    dockerfile_text = """FROM node:18-bookworm-slim
-RUN apt-get update \\
-    && apt-get install -y --no-install-recommends git ca-certificates \\
-    && rm -rf /var/lib/apt/lists/*
+    dockerfile_text = """FROM psa-sandbox:latest
+USER root
 WORKDIR /opt/psa-deps
 COPY package.json package-lock.json* ./
 RUN (npm install --legacy-peer-deps --no-audit --no-fund || npm install --no-audit --no-fund || true) \\
-    && (npm install --no-save jest supertest || true) \\
     && chown -R node:node /opt/psa-deps
-ENV NODE_PATH=/opt/psa-deps/node_modules
-ENV PATH=/opt/psa-deps/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ENV HOME=/tmp
 USER node
 WORKDIR /workspace
 """
