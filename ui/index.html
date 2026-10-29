@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Verified Security Patch Agent — Human Review Gate</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 24px; background: #0f172a; color: #e2e8f0; }
+    h1, h2, h3 { color: #f8fafc; margin-top: 0; }
+    .bar { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
+    select, input, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #f8fafc; }
+    button { background: #2563eb; border-color: #1d4ed8; cursor: pointer; font-weight: 600; }
+    button:hover { background: #1d4ed8; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; }
+    .PASS { background: #065f46; color: #a7f3d0; }
+    .FAIL { background: #7f1d1d; color: #fecaca; }
+    pre { background: #020617; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; border: 1px solid #1e293b; }
+    .meta { font-size: 13px; color: #94a3b8; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Verified Security Patch Agent — Evidence & Approval Review</h1>
+  <div class="bar">
+    <label for="runSelect">Recorded Run:</label>
+    <select id="runSelect"></select>
+    <button onclick="loadSelectedRun()">Refresh</button>
+    <button onclick="loadReplay()">Inspect Replay Log</button>
+  </div>
+  <div id="summaryBox" class="card">Loading real run artifacts from /api/runs...</div>
+  <div id="replayBox" class="card" style="display:none;"></div>
+  <div id="findingsBox"></div>
+
+  <script>
+    async function init() {
+      const resp = await fetch("/api/runs");
+      const data = await resp.json();
+      const sel = document.getElementById("runSelect");
+      sel.innerHTML = "";
+      if (!data.runs.length) {
+        document.getElementById("summaryBox").textContent = "No run artifacts found in runs/ yet. Execute `psa run --target fixture/express-fixture` first.";
+        return;
+      }
+      for (const r of data.runs) {
+        const opt = document.createElement("option");
+        opt.value = r.run_id;
+        opt.textContent = `${r.run_id} (verified=${r.verified_reproducers}, pass=${r.patches_passed})`;
+        sel.appendChild(opt);
+      }
+      await loadSelectedRun();
+    }
+
+    async function loadSelectedRun() {
+      const runId = document.getElementById("runSelect").value;
+      if (!runId) return;
+      document.getElementById("replayBox").style.display = "none";
+      const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}`);
+      const data = await resp.json();
+      const s = data.summary;
+      document.getElementById("summaryBox").innerHTML =
+        `<h3>Run ${s.run_id}</h3>` +
+        `<div class="meta">Routes: ${s.routes_discovered} | Candidates: ${s.candidates_accepted} | Verified Reproducers: ${s.verified_reproducers} | Not Reproduced: ${s.not_reproduced} | Inconclusive: ${s.inconclusive} | Patches PASS: ${s.patches_passed}</div>`;
+
+      const container = document.getElementById("findingsBox");
+      container.innerHTML = "";
+      for (const f of data.findings) {
+        const c = f.candidate;
+        const p = f.patch_result || {};
+        const status = p.final_status || "UNPATCHED";
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3>${c.id} — ${c.vulnerability_class} on <code>${c.route}</code> <span class="badge ${status}">${status}</span></h3>
+          <div class="meta">File: <code>${c.file}:${c.start_line}-${c.end_line}</code> | Invariant: <code>${c.invariant_id}</code></div>
+          <p><strong>Expected Failure:</strong> ${c.expected_security_failure}</p>
+          <p><strong>Baseline Match:</strong> <code>${f.baseline_failure_summary}</code> | Companion Baseline Exit: <code>${f.verification.companion_baseline_exit_code}</code></p>
+          <p><strong>Post-Patch Checks:</strong> Security Exit=<code>${p.patched_security_exit_code}</code>, Companion Exit=<code>${p.companion_after_exit_code}</code>, Full Suite Exit=<code>${p.full_suite_exit_code}</code>, Guards Passed=<code>${p.guards_passed}</code></p>
+          <p><strong>Patch SHA-256:</strong> <code>${p.patch_sha256 || "N/A"}</code></p>
+          <pre>${(p.unified_diff || "").replace(/</g, "&lt;")}</pre>
+          ${status === "PASS" ? `
+            <div class="bar">
+              <input id="rev_${c.id}" placeholder="Reviewer name" value="security-reviewer" />
+              <input id="br_${c.id}" placeholder="Target branch" value="psa/fix-${c.id.toLowerCase()}" />
+              <button onclick="approvePatch('${s.run_id}', '${c.id}', '${p.patch_sha256}')">Approve Exact SHA-256</button>
+              <span id="status_${c.id}">${f.approval ? "Approved by " + f.approval.reviewer + " for " + f.approval.target_branch : ""}</span>
+            </div>
+          ` : ""}
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    async function loadReplay() {
+      const runId = document.getElementById("runSelect").value;
+      if (!runId) return;
+      const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}/replay`);
+      const data = await resp.json();
+      const box = document.getElementById("replayBox");
+      box.style.display = "block";
+      box.innerHTML = `<h3>Replay Output</h3><pre>${data.formatted.replace(/</g, "&lt;")}</pre>`;
+    }
+
+    async function approvePatch(runId, findingId, sha256) {
+      const reviewer = document.getElementById(`rev_${findingId}`).value;
+      const branch = document.getElementById(`br_${findingId}`).value;
+      const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}/bundles/${encodeURIComponent(findingId)}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewer, patch_sha256: sha256, target_branch: branch })
+      });
+      const out = await resp.json();
+      document.getElementById(`status_${findingId}`).textContent = resp.ok
+        ? `Approved (${out.patch_sha256.slice(0, 12)} -> ${out.target_branch})`
+        : `Error: ${out.detail}`;
+    }
+
+    init();
+  </script>
+</body>
+</html>
+

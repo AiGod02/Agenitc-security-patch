@@ -1,0 +1,28 @@
+{
+  "name": "psa-express-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Owned Express target application fixture for Verified Security Patch Agent",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "express": "4.21.1",
+    "sql.js": "1.12.0"
+  },
+  "devDependencies": {
+    "jest": "29.7.0",
+    "supertest": "7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js"
+    ]
+  }
+}

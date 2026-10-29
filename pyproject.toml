@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "verified-security-patch-agent"
+version = "0.1.0"
+description = "Proof-carrying security patch agent for Node.js/Express applications using Meta Muse models"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic==2.7.4",
+    "httpx==0.27.2",
+    "fastapi==0.115.0",
+    "uvicorn==0.30.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.2",
+]
+
+[project.scripts]
+psa = "agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["contracts*", "agent*", "eval*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
