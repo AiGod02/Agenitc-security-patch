@@ -286,7 +286,9 @@ class ToolDispatcher:
             normalized_paths.append(resolved.relative_to(self.workspace).as_posix())
 
         timeout_s = float(args.get("timeout_s") or self.default_timeout_s)
-        cmd = ["jest", "--runInBand", "--json", "--runTestsByPath", *normalized_paths]
+        cmd = ["jest", "--runInBand", "--json"]
+        if normalized_paths:
+            cmd.extend(["--runTestsByPath", *normalized_paths])
         run_res = self.sandbox.run(self.workspace, cmd, timeout_s=timeout_s)
         stdout_clipped, trunc_out = self._truncate_str(run_res.stdout)
         stderr_clipped, trunc_err = self._truncate_str(run_res.stderr)
