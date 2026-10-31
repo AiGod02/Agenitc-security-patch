@@ -894,17 +894,26 @@
           </div>
 
           ${status === "PASS" ? `
-            <div class="approval-bar">
-              <input id="rev_${escHtml(c.id)}" placeholder="Reviewer identity" value="hackathon-judge" />
-              <input id="br_${escHtml(c.id)}" placeholder="Target git branch" value="psa/fix-${escHtml(c.id.toLowerCase())}" />
-              <input id="repo_${escHtml(c.id)}" placeholder="${canAutoApply ? 'Auto-uses cloned repo (optional override)' : 'Git repo path for branch apply'}" style="width:260px;" />
+            <div class="approval-bar" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 12px 14px;">
+              <div style="width:100%; margin-bottom: 8px; font-weight:700; color:#a7f3d0; font-size:13px;">
+                ✅ Patch Verified PASS — Ready for Cryptographic Review &amp; Apply
+              </div>
+              <input id="rev_${escHtml(c.id)}" placeholder="Reviewer identity" value="hackathon-judge" title="Reviewer Name" />
+              <input id="br_${escHtml(c.id)}" placeholder="Target git branch" value="psa/fix-${escHtml(c.id.toLowerCase())}" title="Target Git Branch" />
+              <input id="repo_${escHtml(c.id)}" placeholder="${canAutoApply ? 'Auto-uses cloned repo (optional override)' : 'Git repo path for branch apply'}" style="width:260px;" title="Repository Path" />
               <button class="btn-primary" onclick="approvePatch('${escHtml(s.run_id)}', '${escHtml(c.id)}', '${escHtml(p.patch_sha256)}')">1. Approve Exact SHA-256</button>
               <button class="btn-emerald" onclick="applyPatchToBranch('${escHtml(s.run_id)}', '${escHtml(c.id)}')">2. Apply Patch to Git Branch</button>
               <span id="status_${escHtml(c.id)}" class="status-msg">${
                 f.approval ? "Approved by " + escHtml(f.approval.reviewer) + " -> " + escHtml(f.approval.target_branch) : ""
               }</span>
             </div>
-          ` : ""}
+          ` : `
+            <div class="approval-bar" style="background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 8px; padding: 10px 14px;">
+              <span class="status-msg err">
+                ⛔ Branch Apply Locked: Patch status is <strong>${escHtml(status)}</strong> (${escHtml(p.failure_reason || 'Checks or regression tests did not pass')}). Per Ground Rules, direct apply is strictly disabled for non-PASS patches to protect repository integrity.
+              </span>
+            </div>
+          `}
         `;
         container.appendChild(card);
       }
