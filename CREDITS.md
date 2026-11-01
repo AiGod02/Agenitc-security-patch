@@ -2,7 +2,7 @@
 
 ## Ideas Adopted (No Code Copied)
 
-Per Section 13 of `implmentation.md`, no source code or prompt text was copied from third-party repositories. Only high-level architectural ideas were adopted and implemented from scratch:
+No source code or prompt text was copied from third-party repositories. Only high-level architectural ideas were adopted and implemented from scratch:
 
 1. **digital-duck/cve-coder** (`https://github.com/digital-duck/cve-coder`)
    - Idea adopted: stage-separated run artifacts and the core verification principle that a security regression test must fail on the vulnerable baseline and pass on the patched checkout, with explicit status outcomes (`PASS`, `FAIL`, `INCONCLUSIVE`).
@@ -13,6 +13,7 @@ Per Section 13 of `implmentation.md`, no source code or prompt text was copied f
 4. **PrismorSec/patchbot** (`https://github.com/PrismorSec/patchbot`)
    - Idea adopted: structured evidence reports with explicit failure reasons.
 
-## AI-Assisted Development Disclosure
+## Solo Developer & AI-Assisted Development Disclosure
 
-This repository was developed with AI coding assistance (Google Antigravity) guided by `implmentation.md`, with all claims verified against real Meta Model API calls and real sandboxed/local Jest executions.
+Developed solely by **soojal** ([@AiGod02](https://github.com/AiGod02)) for the Meta Global AI Developer Hackathon.
+All agent pipelines, multi-stage state machines, planning logic, Docker sandbox runners, and interactive UI were designed, implemented, and verified by a single developer with AI coding assistance (Google Antigravity), with all claims verified against real Meta Model API calls and real sandboxed/local Jest executions.

@@ -1,10 +1,10 @@
 # Development Prompts Log (`PROMPTS.md`)
 
-Per Section 1.5 of `implmentation.md`, this file records the user prompts and internal model system prompts used to construct and operate each slice of the Verified Security Patch Agent.
+This file records the user prompts and internal model system prompts used to construct and operate each slice of the Verified Security Patch Agent.
 
 ## 1. User Development Prompts (2026-10-29)
 
-1. `go throug @[c:\Users\sooja\Downloads\MetaAI\Security_patch_agent\implmentation.md] and start building this`
+1. `Initial Build Request`
    - Produced Wave 0 (`contracts/`, `docs/verified_facts.md`, `docs/threat_model.md`, `pyproject.toml`, `.gitignore`, `.env.example`, `CREDITS.md`), Wave 1 (`fixture/`, `ground_truth.json`, `docker/Dockerfile`, `agent/sandbox/`, `agent/verify/matcher.py`, `tests/data/`, `agent/llm/`), Wave 2 (`agent/tools/`, `agent/recon/`, `agent/detect/`, `agent/verify/loop.py`), and Wave 3 (`agent/patch/`, `agent/evidence/`, `agent/workflow/`, `agent/cli.py`).
 2. `continue`
    - Resumed Docker verification after session restart and produced Wave 4 (`eval/report.py`, `eval/run_eval.py`, `agent/advisory.py`, `agent/api/app.py`, `ui/index.html`, `README.md`, and `tests/test_eval_and_api_s12_s14.py`).

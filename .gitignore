@@ -7,6 +7,9 @@
 runs/
 .llm_cache/
 
+# Local scripts
+DEMO_SCRIPT.md
+
 # Python artifacts
 __pycache__/
 *.py[cod]
