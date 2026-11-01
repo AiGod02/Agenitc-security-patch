@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import re
 import threading
+import subprocess
 from typing import Any
 import uuid
 
@@ -473,19 +474,39 @@ def create_review_api(
 
         try:
             if (run_dir / "state.json").exists() and (run_dir / "06_evidence" / finding_id).exists():
-                return stage_apply(
+                res = stage_apply(
                     run_dir=run_dir,
                     repo_dir=Path(eff_repo_str),
                     candidate_id=finding_id,
                     target_branch=payload.target_branch,
                     subdir_in_repo=eff_subdir,
                 )
-            return apply_approved_patch_to_branch(
-                repo_dir=Path(eff_repo_str),
-                bundle_dir=bundle,
-                target_branch=payload.target_branch,
-                subdir_in_repo=eff_subdir,
-            )
+            else:
+                res = apply_approved_patch_to_branch(
+                    repo_dir=Path(eff_repo_str),
+                    bundle_dir=bundle,
+                    target_branch=payload.target_branch,
+                    subdir_in_repo=eff_subdir,
+                )
+
+            # Auto-push branch to origin if repo has a remote configured
+            try:
+                eff_repo = Path(eff_repo_str)
+                rem_proc = subprocess.run(["git", "remote"], cwd=eff_repo, capture_output=True, text=True, timeout=5)
+                if "origin" in rem_proc.stdout.split():
+                    target_br = str(res.get("branch") or "")
+                    if target_br:
+                        push_proc = subprocess.run(["git", "push", "origin", target_br], cwd=eff_repo, capture_output=True, text=True, timeout=20)
+                        res["pushed_to_remote"] = (push_proc.returncode == 0)
+                        if push_proc.returncode == 0:
+                            res["remote_push_message"] = f"Pushed branch {target_br} to remote origin"
+                        else:
+                            res["remote_push_error"] = push_proc.stderr.strip()
+            except Exception as e:
+                res["pushed_to_remote"] = False
+                res["remote_push_error"] = str(e)
+
+            return res
         except ApprovalError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

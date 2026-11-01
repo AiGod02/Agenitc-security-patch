@@ -964,7 +964,13 @@
       });
       const out = await resp.json();
       if (resp.ok) {
-        statusEl.textContent = `Committed on branch ${out.branch} @ ${out.commit.slice(0, 12)} (no auto-merge)`;
+        let msg = `Committed on branch ${out.branch} @ ${out.commit.slice(0, 12)} (no auto-merge)`;
+        if (out.pushed_to_remote) {
+          msg += ` — 🚀 Pushed to remote repository!`;
+        } else if (out.remote_push_error) {
+          msg += ` (local branch created; remote push: ${out.remote_push_error})`;
+        }
+        statusEl.textContent = msg;
         await pollLiveStatus(runId);
       } else {
         statusEl.className = "status-msg err";
